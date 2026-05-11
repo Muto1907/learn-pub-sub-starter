@@ -26,7 +26,13 @@ func main() {
 		log.Fatalf("%v", err)
 	}
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
-	ch, queue, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, routing.TRANSIENT)
+	ch, queue, err := pubsub.DeclareAndBind(
+		conn,
+		routing.ExchangePerilDirect,
+		queueName,
+		routing.PauseKey,
+		routing.TRANSIENT)
+
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

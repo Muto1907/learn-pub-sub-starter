@@ -27,14 +27,27 @@ func main() {
 	}
 	for {
 		command := gamelogic.GetInput()
+		if len(command) == 0 {
+			continue
+		}
 		switch command[0] {
 		case "pause":
 			fmt.Println("Sending Pause message")
-			pubsub.PublishJson(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
+			pubsub.PublishJson(
+				ch,
+				routing.ExchangePerilDirect,
+				routing.PauseKey,
+				routing.PlayingState{IsPaused: true},
+			)
 
 		case "resume":
 			fmt.Println("Sending resume message")
-			pubsub.PublishJson(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: false})
+			pubsub.PublishJson(
+				ch,
+				routing.ExchangePerilDirect,
+				routing.PauseKey,
+				routing.PlayingState{IsPaused: false},
+			)
 
 		case "quit":
 			fmt.Printf("Exiting...")
