@@ -3,8 +3,14 @@ package pubsub
 import (
 	"errors"
 
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+type SimpleQueueType int
+
+const (
+	TRANSIENT SimpleQueueType = iota
+	DURABLE
 )
 
 func DeclareAndBind(
@@ -12,7 +18,7 @@ func DeclareAndBind(
 	exchange,
 	queueName,
 	key string,
-	queueType routing.SimpleQueueType,
+	queueType SimpleQueueType,
 ) (*amqp.Channel, *amqp.Queue, error) {
 	ch, err := con.Channel()
 	if err != nil {
@@ -20,11 +26,11 @@ func DeclareAndBind(
 	}
 	var durable, autoDelete, exclusive bool
 	switch queueType {
-	case routing.TRANSIENT:
+	case TRANSIENT:
 		durable = false
 		autoDelete = true
 		exclusive = true
-	case routing.DURABLE:
+	case DURABLE:
 		durable = true
 		autoDelete = false
 		exclusive = false

@@ -31,7 +31,7 @@ func main() {
 		routing.ExchangePerilDirect,
 		queueName,
 		routing.PauseKey,
-		routing.TRANSIENT)
+		pubsub.TRANSIENT)
 
 	if err != nil {
 		log.Fatalf("%v", err)
