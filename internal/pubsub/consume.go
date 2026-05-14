@@ -1,7 +1,7 @@
 package pubsub
 
 import (
-	"errors"
+	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -19,24 +19,14 @@ func DeclareAndBind(
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-) (*amqp.Channel, *amqp.Queue, error) {
+) (*amqp.Channel, amqp.Queue, error) {
 	ch, err := con.Channel()
 	if err != nil {
-		return &amqp.Channel{}, &amqp.Queue{}, err
+		return nil, amqp.Queue{}, fmt.Errorf("error creating channel: %v", err)
 	}
-	var durable, autoDelete, exclusive bool
-	switch queueType {
-	case TRANSIENT:
-		durable = false
-		autoDelete = true
-		exclusive = true
-	case DURABLE:
-		durable = true
-		autoDelete = false
-		exclusive = false
-	default:
-		return &amqp.Channel{}, &amqp.Queue{}, errors.New("QueueType incompatible.")
-	}
+	durable := queueType == DURABLE
+	autoDelete := queueType == TRANSIENT
+	exclusive := queueType == TRANSIENT
 	queue, err := ch.QueueDeclare(
 		queueName,
 		durable,
@@ -46,11 +36,11 @@ func DeclareAndBind(
 		nil,
 	)
 	if err != nil {
-		return &amqp.Channel{}, &amqp.Queue{}, err
+		return nil, amqp.Queue{}, fmt.Errorf("error declaring queue %v", err)
 	}
 	err = ch.QueueBind(queueName, key, exchange, false, nil)
 	if err != nil {
-		return &amqp.Channel{}, &amqp.Queue{}, err
+		return nil, amqp.Queue{}, fmt.Errorf("error binding queue: %v", err)
 	}
-	return ch, &queue, nil
+	return ch, queue, nil
 }

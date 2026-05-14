@@ -14,10 +14,3 @@ const (
 	ExchangePerilDirect = "peril_direct"
 	ExchangePerilTopic  = "peril_topic"
 )
-
-type SimpleQueueType int
-
-const (
-	TRANSIENT SimpleQueueType = iota
-	DURABLE
-)
