@@ -3,7 +3,6 @@ package pubsub
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -48,35 +47,50 @@ func DeclareAndBind(
 }
 
 func SubscribeJSON[T any](
-	conn *amqp.Connection,
+	con *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T)) error {
-	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	handler func(T),
+) error {
+	ch, queue, err := DeclareAndBind(
+		con,
+		exchange,
+		queueName,
+		key,
+		queueType,
+	)
 	if err != nil {
-		return fmt.Errorf("error declaring and binding queue: %v\n", err)
+		return fmt.Errorf("error declaring and binding queue: %v", err)
 	}
-	fmt.Printf("Queue %s declared and bound!", queue.Name)
-	deliveryChan, err := ch.Consume(queueName, "", false, false, false, false, nil)
-	if err != nil {
-		return fmt.Errorf("error consuming: %v\n", err)
+	defer ch.Close()
+	fmt.Printf("successfully bound to queue %s\n", queue.Name)
+
+	deliveryChan, err := ch.Consume(
+		queueName,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	unmarshaller := func(data []byte) (T, error) {
+		var target T
+		err = json.Unmarshal(data, &target)
+		if err != nil {
+			return target, err
+		}
+		return target, nil
 	}
 	go func() {
 		for data := range deliveryChan {
-			var payload T
-			err := json.Unmarshal(data.Body, &payload)
+			msg, err := unmarshaller(data.Body)
 			if err != nil {
-				fmt.Printf("error unmarshalling delivery: %v\n", err)
-				continue
+				fmt.Printf("error unmarshalling delivery: %v", err)
 			}
-			handler(payload)
-			err = data.Ack(false)
-			if err != nil {
-				log.Fatalf("error acknowleding delivery: %v\n", err)
-				continue
-			}
+			handler(msg)
 		}
 	}()
 	return nil
