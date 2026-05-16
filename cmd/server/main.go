@@ -25,6 +25,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("error creating channel: %v", err)
 	}
+
+	_, queue, err := pubsub.DeclareAndBind(
+		connection,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.DURABLE,
+	)
+	if err != nil {
+		log.Fatalf("error, declaring and binding queue")
+	}
+	fmt.Printf("Queue %s declared and bound\n", queue.Name)
 	for {
 		command := gamelogic.GetInput()
 		if len(command) == 0 {
@@ -50,11 +62,11 @@ func main() {
 			)
 
 		case "quit":
-			fmt.Printf("Exiting...")
+			fmt.Printf("Exiting...\n")
 			return
 
 		default:
-			fmt.Printf("Command not found")
+			fmt.Printf("Command not found\n")
 		}
 	}
 }

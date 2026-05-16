@@ -19,25 +19,24 @@ func main() {
 	}
 	fmt.Println("Connection to rabbitmq successful!")
 	defer conn.Close()
+
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatalf("error parsing username: %v", err)
 	}
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
-	ch, queue, err := pubsub.DeclareAndBind(
+	gameState := gamelogic.NewGameState(username)
+	err = pubsub.SubscribeJSON(
 		conn,
 		routing.ExchangePerilDirect,
 		queueName,
 		routing.PauseKey,
-		pubsub.TRANSIENT)
-
+		pubsub.TRANSIENT,
+		HandlerPause(gameState))
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatalf("error subscribing to %s", queueName)
 	}
-	defer ch.Close()
-	fmt.Printf("Created and Bound to queue %s\n", queue.Name)
 
-	gameState := gamelogic.NewGameState(username)
 	for {
 		cmd := gamelogic.GetInput()
 		if len(cmd) == 0 {
@@ -56,7 +55,7 @@ func main() {
 				fmt.Printf("error moving unit: %v\n", err)
 				continue
 			}
-			fmt.Printf("move to %s successful", move.ToLocation)
+			fmt.Printf("move to %s successful\n", move.ToLocation)
 		case "status":
 			gameState.CommandStatus()
 		case "help":
