@@ -64,7 +64,6 @@ func SubscribeJSON[T any](
 	if err != nil {
 		return fmt.Errorf("error declaring and binding queue: %v", err)
 	}
-	defer ch.Close()
 	fmt.Printf("successfully bound to queue %s\n", queue.Name)
 
 	deliveryChan, err := ch.Consume(
@@ -85,6 +84,7 @@ func SubscribeJSON[T any](
 		return target, nil
 	}
 	go func() {
+		defer ch.Close()
 		for data := range deliveryChan {
 			msg, err := unmarshaller(data.Body)
 			if err != nil {

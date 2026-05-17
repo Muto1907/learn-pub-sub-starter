@@ -21,18 +21,15 @@ func main() {
 	defer connection.Close()
 	fmt.Println("Connection successful")
 	gamelogic.PrintServerHelp()
-	ch, err := connection.Channel()
-	if err != nil {
-		log.Fatalf("error creating channel: %v", err)
-	}
 
-	_, queue, err := pubsub.DeclareAndBind(
+	ch, queue, err := pubsub.DeclareAndBind(
 		connection,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
 		pubsub.DURABLE,
 	)
+	defer ch.Close()
 	if err != nil {
 		log.Fatalf("error, declaring and binding queue")
 	}

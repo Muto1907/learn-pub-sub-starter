@@ -20,6 +20,11 @@ func main() {
 	fmt.Println("Connection to rabbitmq successful!")
 	defer conn.Close()
 
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Fatalf("error creating channel: %v", err)
+	}
+
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
 		log.Fatalf("error parsing username: %v", err)
@@ -35,6 +40,18 @@ func main() {
 		HandlerPause(gameState))
 	if err != nil {
 		log.Fatalf("error subscribing to %s", queueName)
+	}
+
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+username,
+		routing.ArmyMovesPrefix+".*",
+		pubsub.TRANSIENT,
+		HandlerMove(gameState),
+	)
+	if err != nil {
+		log.Fatalf("error subscribing to %s.*", routing.ArmyMovesPrefix)
 	}
 
 	for {
@@ -55,7 +72,16 @@ func main() {
 				fmt.Printf("error moving unit: %v\n", err)
 				continue
 			}
-			fmt.Printf("move to %s successful\n", move.ToLocation)
+			err = pubsub.PublishJson(
+				ch,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+username,
+				move,
+			)
+			if err != nil {
+				fmt.Printf("error publishing move: %v", err)
+			}
+			fmt.Printf("move to %s successfully published\n", move.ToLocation)
 		case "status":
 			gameState.CommandStatus()
 		case "help":
