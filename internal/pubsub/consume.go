@@ -14,6 +14,14 @@ const (
 	DURABLE
 )
 
+type ACKTYPE int
+
+const (
+	ACK ACKTYPE = iota
+	NACK_REQUEUE
+	NACK_DISCARD
+)
+
 func DeclareAndBind(
 	con *amqp.Connection,
 	exchange,
@@ -34,7 +42,9 @@ func DeclareAndBind(
 		autoDelete,
 		exclusive,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
+		},
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, fmt.Errorf("error declaring queue %v", err)
@@ -52,7 +62,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) ACKTYPE,
 ) error {
 	ch, queue, err := DeclareAndBind(
 		con,
@@ -90,7 +100,18 @@ func SubscribeJSON[T any](
 			if err != nil {
 				fmt.Printf("error unmarshalling delivery: %v", err)
 			}
-			handler(msg)
+			res := handler(msg)
+			switch res {
+			case ACK:
+				data.Ack(false)
+				fmt.Printf("ACK sent for msg: %s\n", msg)
+			case NACK_REQUEUE:
+				data.Nack(false, true)
+				fmt.Printf("NACK with requeue sent for msg: %s\n", msg)
+			case NACK_DISCARD:
+				data.Nack(false, false)
+				fmt.Printf("NACK with discard sent for msg: %s\n", msg)
+			}
 		}
 	}()
 	return nil

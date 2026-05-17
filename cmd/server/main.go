@@ -29,10 +29,10 @@ func main() {
 		routing.GameLogSlug+".*",
 		pubsub.DURABLE,
 	)
-	defer ch.Close()
 	if err != nil {
 		log.Fatalf("error, declaring and binding queue")
 	}
+	defer ch.Close()
 	fmt.Printf("Queue %s declared and bound\n", queue.Name)
 	for {
 		command := gamelogic.GetInput()
