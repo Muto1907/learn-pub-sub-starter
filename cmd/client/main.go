@@ -48,11 +48,18 @@ func main() {
 		routing.ArmyMovesPrefix+"."+username,
 		routing.ArmyMovesPrefix+".*",
 		pubsub.TRANSIENT,
-		HandlerMove(gameState),
+		HandlerMove(gameState, ch),
 	)
 	if err != nil {
 		log.Fatalf("error subscribing to %s.*", routing.ArmyMovesPrefix)
 	}
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		"war",
+		routing.WarRecognitionsPrefix+".*",
+		pubsub.DURABLE,
+		HandlerWar(gameState))
 
 	for {
 		cmd := gamelogic.GetInput()
