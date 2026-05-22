@@ -48,20 +48,38 @@ func HandlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 	}
 }
 
-func HandlerWar(gs *gamelogic.GameState) func(gamelogic.RecognitionOfWar) pubsub.ACKTYPE {
-	defer fmt.Printf("> ")
+func HandlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.RecognitionOfWar) pubsub.ACKTYPE {
 	return func(rw gamelogic.RecognitionOfWar) pubsub.ACKTYPE {
-		outcome, _, _ := gs.HandleWar(rw)
+		defer fmt.Printf("> ")
+		outcome, winner, loser := gs.HandleWar(rw)
 		switch outcome {
 		case gamelogic.WarOutcomeNotInvolved:
 			return pubsub.NACK_REQUEUE
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NACK_DISCARD
 		case gamelogic.WarOutcomeDraw:
-			fallthrough
+			err := pubsub.PublishGameLog(
+				ch,
+				rw.Attacker.Username,
+				fmt.Sprintf("A war between %s and %s resulted in a draw", winner, loser),
+			)
+			if err != nil {
+				fmt.Printf("error publishing log: %v", err)
+				return pubsub.NACK_REQUEUE
+			}
+			return pubsub.ACK
 		case gamelogic.WarOutcomeYouWon:
 			fallthrough
 		case gamelogic.WarOutcomeOpponentWon:
+			err := pubsub.PublishGameLog(
+				ch,
+				rw.Attacker.Username,
+				fmt.Sprintf("%s won a war against %s", winner, loser),
+			)
+			if err != nil {
+				fmt.Printf("error publishing log: %v", err)
+				return pubsub.NACK_REQUEUE
+			}
 			return pubsub.ACK
 		default:
 			fmt.Printf("error outcome %v not recognized\n", outcome)

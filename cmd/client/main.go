@@ -59,7 +59,7 @@ func main() {
 		"war",
 		routing.WarRecognitionsPrefix+".*",
 		pubsub.DURABLE,
-		HandlerWar(gameState))
+		HandlerWar(gameState, ch))
 
 	for {
 		cmd := gamelogic.GetInput()
