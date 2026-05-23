@@ -21,19 +21,22 @@ func main() {
 	defer connection.Close()
 	fmt.Println("Connection successful")
 	gamelogic.PrintServerHelp()
-
-	ch, queue, err := pubsub.DeclareAndBind(
+	ch, err := connection.Channel()
+	if err != nil {
+		log.Fatalf("error creating channel: %v", err)
+	}
+	err = pubsub.SubscribeGob(
 		connection,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
 		pubsub.DURABLE,
+		HandlerLog(),
 	)
 	if err != nil {
 		log.Fatalf("error, declaring and binding queue")
 	}
 	defer ch.Close()
-	fmt.Printf("Queue %s declared and bound\n", queue.Name)
 	for {
 		command := gamelogic.GetInput()
 		if len(command) == 0 {

@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -64,18 +66,68 @@ func SubscribeJSON[T any](
 	queueType SimpleQueueType,
 	handler func(T) ACKTYPE,
 ) error {
-	ch, queue, err := DeclareAndBind(
+	unmarshaller := func(data []byte) (T, error) {
+		var val T
+		err := json.Unmarshal(data, &val)
+		if err != nil {
+			return val, fmt.Errorf("error unmarshalling json: %v", err)
+		}
+		return val, nil
+	}
+	return Subscribe(
 		con,
 		exchange,
 		queueName,
 		key,
 		queueType,
+		handler,
+		unmarshaller,
 	)
-	if err != nil {
-		return fmt.Errorf("error declaring and binding queue: %v", err)
-	}
-	fmt.Printf("successfully bound to queue %s\n", queue.Name)
+}
 
+func SubscribeGob[T any](
+	con *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) ACKTYPE,
+) error {
+	unmarshaller := func(data []byte) (T, error) {
+		buf := bytes.NewBuffer(data)
+		decoder := gob.NewDecoder(buf)
+		var val T
+		err := decoder.Decode(&val)
+		if err != nil {
+			return val, fmt.Errorf("error decoding gob: %v\n", err)
+		}
+		return val, nil
+	}
+	return Subscribe(
+		con,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		handler,
+		unmarshaller,
+	)
+}
+
+func Subscribe[T any](
+	con *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) ACKTYPE,
+	unmarshaller func(data []byte) (T, error),
+) error {
+	ch, queue, err := DeclareAndBind(con, exchange, queueName, key, queueType)
+	if err != nil {
+		return fmt.Errorf("error declaring and binding to queue: %v\n", err)
+	}
+	fmt.Printf("successfully bound to queue: %s\n", queue.Name)
 	deliveryChan, err := ch.Consume(
 		queueName,
 		"",
@@ -83,34 +135,27 @@ func SubscribeJSON[T any](
 		false,
 		false,
 		false,
-		nil,
-	)
-	unmarshaller := func(data []byte) (T, error) {
-		var target T
-		err = json.Unmarshal(data, &target)
-		if err != nil {
-			return target, err
-		}
-		return target, nil
+		nil)
+	if err != nil {
+		return fmt.Errorf("error consuming queue: %v", err)
 	}
 	go func() {
 		defer ch.Close()
 		for data := range deliveryChan {
-			msg, err := unmarshaller(data.Body)
+			val, err := unmarshaller(data.Body)
 			if err != nil {
-				fmt.Printf("error unmarshalling delivery: %v", err)
+				fmt.Printf("error unmarshalling from queue: %v\n", err)
 			}
-			res := handler(msg)
-			switch res {
+			switch handler(val) {
 			case ACK:
 				data.Ack(false)
-				fmt.Printf("ACK sent for msg: %v\n", msg)
+				fmt.Printf("ACK sent for msg: %v\n", val)
 			case NACK_REQUEUE:
 				data.Nack(false, true)
-				fmt.Printf("NACK with requeue sent for msg: %v\n", msg)
+				fmt.Printf("Nack with requeue sent for msg: %v\n", val)
 			case NACK_DISCARD:
 				data.Nack(false, false)
-				fmt.Printf("NACK with discard sent for msg: %v\n", msg)
+				fmt.Printf("Nack Discard sent for msg: %v\n", val)
 			}
 		}
 	}()
