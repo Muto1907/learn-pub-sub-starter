@@ -128,6 +128,10 @@ func Subscribe[T any](
 		return fmt.Errorf("error declaring and binding to queue: %v\n", err)
 	}
 	fmt.Printf("successfully bound to queue: %s\n", queue.Name)
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("error increasing prefetch count: %v")
+	}
 	deliveryChan, err := ch.Consume(
 		queueName,
 		"",
